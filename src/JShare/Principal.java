@@ -9,6 +9,8 @@ import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -28,17 +30,35 @@ import javax.swing.JTextPane;
 import java.awt.FlowLayout;
 import javax.swing.JTextArea;
 
-public class Principal extends JFrame implements Remote, Runnable, ServicoRMI {
+import br.dagostini.jshare.comum.pojos.Arquivo;
+import br.dagostini.jshare.comun.Cliente;
+import br.dagostini.jshare.comun.IServer;
 
 
-	private String USER = "sem_nome";
+
+
+
+
+
+
+public class Principal extends JFrame implements Remote, Runnable, IServer {
+
+	
+	//CLIENTE
+	public Cliente cliente = new Cliente();
+	// SERVIDOR
+	IServer servidor;
+	
+	
 	private String CONTEXTO = "CLIENTE";
-	private String IP = "127.0.0.1";
-	private int PORTA = 1818;
+	
+	
+	
 	
 	private SimpleDateFormat sdf = new SimpleDateFormat("'[Cliente] 'dd/MM/yyyy H:mm:ss:SSS' -> '");
 		
 	
+	//OBJETOS ACESSIVEIS POR FUNCOES
 	private JPanel contentPane;
 	private JTextField textIP;
 	private JTextField textPORTA;
@@ -47,7 +67,7 @@ public class Principal extends JFrame implements Remote, Runnable, ServicoRMI {
 	JTextArea taLog = new JTextArea();
 	JComboBox cbCONTEXTO = new JComboBox();
 	JButton btnConectar = new JButton("CONECTAR");
-	
+	JButton btnDesconectar = new JButton("DESCONECTAR");
 	
 	
 	/**
@@ -78,7 +98,7 @@ public class Principal extends JFrame implements Remote, Runnable, ServicoRMI {
 		setTitle("PROJETO COMPARTILHANDO");
 		setAlwaysOnTop(true);
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		setBounds(100, 100, 655, 280);
+		setBounds(100, 100, 802, 280);
 		contentPane = new JPanel();
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 		setContentPane(contentPane);
@@ -127,26 +147,24 @@ public class Principal extends JFrame implements Remote, Runnable, ServicoRMI {
 		btnConectar.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
 				
+				
 				try {
-					//SETA O NOME DO USUÁRIO
-					USER = textUSER.getText();
-					//SETA O IP
-					IP = textIP.getText();
-					//SETA A PORTRA
-					PORTA = Integer.parseInt(textPORTA.getText());
-					//DEPENDENDO DO CONTEXTO INICIA O SERVIÇO
-					CONTEXTO = String.valueOf(cbCONTEXTO.getSelectedItem());
+					cliente.setNome( textUSER.getText() ); //SETA O NOME DO USUÁRIO
+					cliente.setIp( textIP.getText() ); //SETA O IP
+					cliente.setPorta( Integer.parseInt( textPORTA.getText() ) ); //SETA A PORTA
+					
+					CONTEXTO = String.valueOf(cbCONTEXTO.getSelectedItem()); //SETA O CONTEXTO
+					
+					desabilitarMenuConexao(); // desabilita os campos para evitar ser alterados...
 					
 					if (CONTEXTO.equals("SERVIDOR")) {
 						Servidor();
 					} else {
 						Cliente();
 					}
-					desabilitarMenuConexao();
 					
 				} catch (Exception e) {
 					habilitarMenuConexao();
-					
 				}
 				
 			}
@@ -160,6 +178,14 @@ public class Principal extends JFrame implements Remote, Runnable, ServicoRMI {
 		panel.add(textUSER);
 		textUSER.setColumns(10);
 		panel.add(btnConectar);
+		btnDesconectar.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent arg0) {
+				// desconectar do serviço
+			}
+		});
+		
+		
+		panel.add(btnDesconectar);
 		
 		
 		FlowLayout flowLayout = (FlowLayout) panel_2.getLayout();
@@ -181,13 +207,15 @@ public class Principal extends JFrame implements Remote, Runnable, ServicoRMI {
 
 	
 	public void Servidor() {
+		
 		log("Iniciando o servidor.");
 		
 		try {
-			ServicoRMI servico = (ServicoRMI) UnicastRemoteObject.exportObject(this, 0);
-			Registry registry = LocateRegistry.createRegistry(PORTA);
-			registry.rebind(ServicoRMI.NOME, servico);
-			log("Aguardando conexões.");
+			// inicia o servidor...
+			servidor = (IServer) UnicastRemoteObject.exportObject(this, 0);
+			Registry registry = LocateRegistry.createRegistry(cliente.getPorta());
+			registry.rebind(IServer.NOME_SERVICO, servidor);
+			log("Aguardando conexões.");  //gera o log de sucesso
 
 		} catch (Exception e) {
 			log("\n\n-------------------------------------------------------\n"
@@ -204,13 +232,12 @@ public class Principal extends JFrame implements Remote, Runnable, ServicoRMI {
 	public void Cliente() {
 
 		log("Iniciando o cliente");
+		
 		try {
-			Registry registry = LocateRegistry.getRegistry(IP, PORTA);
-			ServicoRMI servico = (ServicoRMI) registry.lookup(ServicoRMI.NOME);
-			//manda para o servidor o nome do ususário
-			String retorno = servico.saudar(USER);
-			//mostra no nome o que recebeu de volta
-			log(retorno);
+			Registry registry = LocateRegistry.getRegistry(cliente.getIp(), cliente.getPorta());
+			servidor = (IServer) registry.lookup(IServer.NOME_SERVICO);
+			
+			registrarCliente(cliente); // solicita o registro do cliente no servidor
 			
 		} catch (Exception e) {
 			log("\n\n-------------------------------------------------------\n"
@@ -234,13 +261,9 @@ public class Principal extends JFrame implements Remote, Runnable, ServicoRMI {
 	}
 	
 	
-	@Override
-	public String saudar(String nome) throws RemoteException {
-		//registra no log do servidor a 
-		log("Cliente \"" + nome + "\" conectou.");
-		//retorna para o cliente a saudação
-		return "Olá " + nome + "!";
-	}
+	
+	
+	
 	
 	
 	public void desabilitarMenuConexao() {
@@ -249,6 +272,7 @@ public class Principal extends JFrame implements Remote, Runnable, ServicoRMI {
 		textPORTA.setEditable(false);
 		cbCONTEXTO.setEditable(false);
 		btnConectar.setEnabled(false);
+		btnDesconectar.setEnabled(true);
 		
 	}
 	
@@ -258,9 +282,56 @@ public class Principal extends JFrame implements Remote, Runnable, ServicoRMI {
 		textPORTA.setEditable(true);
 		cbCONTEXTO.setEditable(true);
 		btnConectar.setEnabled(true);
+		btnDesconectar.setEnabled(false);
 	}
 	
 	
+	
+	
+	
+	// IMPLEMENTAR FUNCOES DO ISERVER
+	
+	@Override
+	public void registrarCliente(Cliente c) throws RemoteException {
+		//registra no log do servidor
+		log("Cliente \"" + c.getNome() + "\" conectou.");
+	}
+
+
+
+
+	@Override
+	public void publicarListaArquivos(br.dagostini.jshare.comun.Cliente c, List<Arquivo> lista) throws RemoteException {
+		// TODO Auto-generated method stub
+		
+	}
+
+
+
+
+	@Override
+	public Map<br.dagostini.jshare.comun.Cliente, List<Arquivo>> procurarArquivo(String nome) throws RemoteException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+
+
+
+	@Override
+	public byte[] baixarArquivo(Arquivo arq) throws RemoteException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+
+
+
+	@Override
+	public void desconectar(br.dagostini.jshare.comun.Cliente c) throws RemoteException {
+		// TODO Auto-generated method stub
+		
+	}
 	
 	
 	
