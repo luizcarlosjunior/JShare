@@ -11,6 +11,7 @@ import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -18,6 +19,7 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
 
+import ATM.ModeloArquivo;
 import ATM.ModeloCliente;
 
 import javax.swing.JButton;
@@ -28,6 +30,7 @@ import javax.swing.JTextField;
 import javax.swing.JLabel;
 import javax.swing.JComboBox;
 import javax.swing.DefaultComboBoxModel;
+import javax.swing.DefaultListModel;
 import javax.swing.JTabbedPane;
 import java.awt.event.ActionListener;
 import java.io.File;
@@ -48,6 +51,8 @@ import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.ItemEvent;
+import javax.swing.JList;
+import javax.swing.JOptionPane;
 
 
 public class Principal extends JFrame implements Remote, Runnable, IServer {
@@ -57,14 +62,21 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	public Cliente cliente = new Cliente();
 	// SERVIDOR
 	IServer servidor;
+	Registry registry;
 	
 	
 	private String CONTEXTO = "CLIENTE";
 	private String DIRETORIO = "c:\\jshare"; 
 	
-	
+	//LISTA DE CLIENTES
 	private ArrayList<Cliente> lista_clientes = new ArrayList<Cliente>();
 	private ModeloCliente modelo_cliente = new ModeloCliente();
+	//LISTA DE ARQUIVOS
+	private ArrayList<Arquivo> lista_arquivos = new ArrayList<Arquivo>();
+	private ModeloArquivo modelo_arquivo = new ModeloArquivo();
+	
+	//MAP COM CLIETES
+	private Map<String, Cliente> mapaClientes = new HashMap<>();
 	
 	
 	
@@ -82,6 +94,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	JButton btnDesconectar = new JButton("DESCONECTAR");
 	private JTable tbCliente;
 	JTextArea taLog = new JTextArea();
+	private JTable tbArquivos;
 	
 	
 	/**
@@ -112,15 +125,15 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 		setTitle("PROJETO COMPARTILHANDO");
 		setAlwaysOnTop(true);
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		setBounds(100, 100, 833, 513);
+		setBounds(100, 100, 797, 513);
 		contentPane = new JPanel();
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 		setContentPane(contentPane);
 		GridBagLayout gbl_contentPane = new GridBagLayout();
-		gbl_contentPane.columnWidths = new int[]{580, 0, 0};
-		gbl_contentPane.rowHeights = new int[]{-27, 110, 117, 0};
+		gbl_contentPane.columnWidths = new int[]{475, 117, 0};
+		gbl_contentPane.rowHeights = new int[]{-27, 110, 0, 117, 0};
 		gbl_contentPane.columnWeights = new double[]{1.0, 1.0, Double.MIN_VALUE};
-		gbl_contentPane.rowWeights = new double[]{0.0, 1.0, 1.0, Double.MIN_VALUE};
+		gbl_contentPane.rowWeights = new double[]{0.0, 1.0, 0.0, 1.0, Double.MIN_VALUE};
 		contentPane.setLayout(gbl_contentPane);
 		
 		JPanel panel = new JPanel();
@@ -178,11 +191,21 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 				
 				
 				try {
-					cliente.setNome( textUSER.getText() ); //SETA O NOME DO USUÁRIO
-					cliente.setIp( MeuIp() ); //SETA O IP ATUAL
-					cliente.setPorta( Integer.parseInt( textPORTA.getText() ) ); //SETA A PORTA
+					if (textPORTA.getText().trim().length() == 0 ) {
+						JOptionPane.showMessageDialog(Principal.this, "Você precisa digitar uma porta!");
+						return;
+					}
 					
-					CONTEXTO = String.valueOf(cbCONTEXTO.getSelectedItem()); //SETA O CONTEXTO
+					cliente.setNome( textUSER.getText().trim() ); //SETA O NOME DO USUÁRIO
+					cliente.setIp( MeuIp() ); //SETA O IP ATUAL
+					cliente.setPorta( Integer.parseInt( textPORTA.getText().trim() ) ); //SETA A PORTA
+					
+					
+					if (cliente.getNome().length() == 0) {
+						JOptionPane.showMessageDialog(Principal.this, "Você precisa digitar um nome!");
+						return;
+					}
+
 					
 					desabilitarMenuConexao(); // desabilita os campos para evitar ser alterados...
 					
@@ -210,26 +233,41 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 		btnDesconectar.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
 				// desconectar do serviço
+				try {
+					desconectar(cliente);
+				} catch (RemoteException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 		});
 		
 		
 		panel.add(btnDesconectar);
 		
+		tbArquivos = new JTable();
+		GridBagConstraints gbc_tbArquivos = new GridBagConstraints();
+		gbc_tbArquivos.insets = new Insets(0, 0, 5, 5);
+		gbc_tbArquivos.fill = GridBagConstraints.BOTH;
+		gbc_tbArquivos.gridx = 0;
+		gbc_tbArquivos.gridy = 1;
+		contentPane.add(tbArquivos, gbc_tbArquivos);
+		
 		tbCliente = new JTable();
 		tbCliente.setModel(modelo_cliente);
 		GridBagConstraints gbc_tbCliente = new GridBagConstraints();
-		gbc_tbCliente.insets = new Insets(0, 0, 5, 5);
+		gbc_tbCliente.gridheight = 3;
 		gbc_tbCliente.fill = GridBagConstraints.BOTH;
-		gbc_tbCliente.gridx = 0;
+		gbc_tbCliente.gridx = 1;
 		gbc_tbCliente.gridy = 1;
 		contentPane.add(tbCliente, gbc_tbCliente);
 		
 		JButton btnBaixar = new JButton("BAIXAR");
 		GridBagConstraints gbc_btnBaixar = new GridBagConstraints();
-		gbc_btnBaixar.insets = new Insets(0, 0, 5, 0);
-		gbc_btnBaixar.gridx = 1;
-		gbc_btnBaixar.gridy = 1;
+		gbc_btnBaixar.anchor = GridBagConstraints.EAST;
+		gbc_btnBaixar.insets = new Insets(0, 0, 5, 5);
+		gbc_btnBaixar.gridx = 0;
+		gbc_btnBaixar.gridy = 2;
 		contentPane.add(btnBaixar, gbc_btnBaixar);
 		
 		
@@ -237,10 +275,10 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 		taLog.setEditable(true);
 		taLog.setColumns(50);
 		GridBagConstraints gbc_taLog = new GridBagConstraints();
-		gbc_taLog.gridwidth = 2;
+		gbc_taLog.insets = new Insets(0, 0, 0, 5);
 		gbc_taLog.fill = GridBagConstraints.BOTH;
 		gbc_taLog.gridx = 0;
-		gbc_taLog.gridy = 2;
+		gbc_taLog.gridy = 3;
 		contentPane.add(taLog, gbc_taLog);
 	}
 	
@@ -254,7 +292,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 		try {
 			// inicia o servidor...
 			servidor = (IServer) UnicastRemoteObject.exportObject(this, 0);
-			Registry registry = LocateRegistry.createRegistry(cliente.getPorta());
+			registry = LocateRegistry.createRegistry(cliente.getPorta());
 			registry.rebind(IServer.NOME_SERVICO, servidor);
 			log("Aguardando conexões.");  //gera o log de sucesso
 
@@ -278,9 +316,8 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 			Registry registry = LocateRegistry.getRegistry(cliente.getIp(), cliente.getPorta());
 			servidor = (IServer) registry.lookup(IServer.NOME_SERVICO);
 			
-			registrarCliente(cliente); // solicita o registro do cliente no servidor
-			
-			publicarListaArquivos(cliente, listarMeusArquivos()); // registrar os meus arquivos no servidor
+			servidor.registrarCliente(cliente); // solicita o registro do cliente no servidor
+			servidor.publicarListaArquivos(cliente, listarMeusArquivos()); // registrar os meus arquivos no servidor
 			
 			
 		} catch (Exception e) {
@@ -340,13 +377,30 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	
 	@Override
 	public void registrarCliente(Cliente c) throws RemoteException {
-		//registra no log do servidor
-		log("Cliente \"" + c.getNome() + "\" conectou.");
-		
-		lista_clientes.add(c);
 
-		// refresh na lista de clientes
-		modelo_cliente.setList(lista_clientes);
+		if (mapaClientes.get(c.getNome()) != null) {
+			log("O cliente: \"" + c.getNome() + "\" já está registrado no sistema, por favor escolha outro nome.");
+			habilitarMenuConexao();
+			throw new RemoteException("Alguém já está usando o nome: " + c.getNome());
+		}
+
+		mapaClientes.put(c.getNome(), cliente);
+
+		log("Cliente \"" + c.getNome() + "\" conectou."); //registra no log local
+
+		atualizarListasDeParticipantes();
+		
+	}
+	
+	
+	private void atualizarListasDeParticipantes() throws RemoteException {
+		log("Enviando lista atualizada de participantes para todos.");
+		for (Cliente c : mapaClientes.values()) {
+			//c.receberListaParticipantes(new ArrayList<String>(mapaClientes.keySet()));
+			lista_clientes.add(c);
+			// refresh na lista de clientes
+			modelo_cliente.setList(lista_clientes);
+		}
 	}
 
 
@@ -381,9 +435,38 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 
 	@Override
 	public void desconectar(br.dagostini.jshare.comun.Cliente c) throws RemoteException {
-		log("DESCONECTANDO TODOS OS CLIENTES.");
+		
+		if (CONTEXTO.equals("SERVIDOR")) {
+			log(c.getNome() + " saiu do chat."); // mostra no contexto cliente
+			atualizarListasDeParticipantes();
+		} else {
+			if (servidor != null) {
+				UnicastRemoteObject.unexportObject(registry, true);
+				servidor = null;
+			}
+
+			log("Você saiu do chat."); // mostra no contexto cliente
+			lista_clientes = new ArrayList<Cliente>(); // zera a lista de clientes...
+			registry = null;
+			servidor = null;	
+			
+		}
+		
+		
+		
 		
 	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	
 	
 	
@@ -415,7 +498,6 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 				listaDiretorios.add(dir);				
 			}
 		}
-
 		
 		log("Arquivos Encontrados:");
 		for (Arquivo arq : listaArquivos) {
@@ -445,8 +527,6 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 		
 		return ip_user;
 	}
-	
-	
 	
 	
 	
