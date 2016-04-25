@@ -7,7 +7,9 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+import java.sql.SQLException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +17,9 @@ import java.util.Map;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.border.EmptyBorder;
+
+import ATM.ModeloCliente;
+
 import javax.swing.JButton;
 import java.awt.GridBagLayout;
 import java.awt.GridBagConstraints;
@@ -25,20 +30,24 @@ import javax.swing.JComboBox;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JTabbedPane;
 import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.awt.event.ActionEvent;
 import javax.swing.JTextPane;
 import java.awt.FlowLayout;
 import javax.swing.JTextArea;
 
 import br.dagostini.jshare.comum.pojos.Arquivo;
+import br.dagostini.jshare.comum.pojos.Diretorio;
 import br.dagostini.jshare.comun.Cliente;
 import br.dagostini.jshare.comun.IServer;
-
-
-
-
-
-
+import javax.swing.JTable;
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeEvent;
+import java.awt.event.ItemListener;
+import java.awt.event.ItemEvent;
 
 
 public class Principal extends JFrame implements Remote, Runnable, IServer {
@@ -51,6 +60,11 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	
 	
 	private String CONTEXTO = "CLIENTE";
+	private String DIRETORIO = "c:\\jshare"; 
+	
+	
+	private ArrayList<Cliente> lista_clientes = new ArrayList<Cliente>();
+	private ModeloCliente modelo_cliente = new ModeloCliente();
 	
 	
 	
@@ -63,11 +77,11 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	private JTextField textIP;
 	private JTextField textPORTA;
 	private JTextField textUSER;
-	JPanel panel_2 = new JPanel();
-	JTextArea taLog = new JTextArea();
 	JComboBox cbCONTEXTO = new JComboBox();
 	JButton btnConectar = new JButton("CONECTAR");
 	JButton btnDesconectar = new JButton("DESCONECTAR");
+	private JTable tbCliente;
+	JTextArea taLog = new JTextArea();
 	
 	
 	/**
@@ -80,7 +94,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 					Principal frame = new Principal();
 					frame.setVisible(true);
 
-
+					
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -98,21 +112,22 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 		setTitle("PROJETO COMPARTILHANDO");
 		setAlwaysOnTop(true);
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		setBounds(100, 100, 802, 280);
+		setBounds(100, 100, 833, 513);
 		contentPane = new JPanel();
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 		setContentPane(contentPane);
 		GridBagLayout gbl_contentPane = new GridBagLayout();
-		gbl_contentPane.columnWidths = new int[]{580, 0};
+		gbl_contentPane.columnWidths = new int[]{580, 0, 0};
 		gbl_contentPane.rowHeights = new int[]{-27, 110, 117, 0};
-		gbl_contentPane.columnWeights = new double[]{1.0, Double.MIN_VALUE};
-		gbl_contentPane.rowWeights = new double[]{0.0, 1.0, 0.0, Double.MIN_VALUE};
+		gbl_contentPane.columnWeights = new double[]{1.0, 1.0, Double.MIN_VALUE};
+		gbl_contentPane.rowWeights = new double[]{0.0, 1.0, 1.0, Double.MIN_VALUE};
 		contentPane.setLayout(gbl_contentPane);
 		
 		JPanel panel = new JPanel();
 		FlowLayout flowLayout_1 = (FlowLayout) panel.getLayout();
 		flowLayout_1.setAlignment(FlowLayout.LEFT);
 		GridBagConstraints gbc_panel = new GridBagConstraints();
+		gbc_panel.gridwidth = 2;
 		gbc_panel.anchor = GridBagConstraints.NORTH;
 		gbc_panel.fill = GridBagConstraints.HORIZONTAL;
 		gbc_panel.insets = new Insets(0, 0, 5, 0);
@@ -138,9 +153,23 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 		
 		JLabel lblContexto = new JLabel("CONTEXTO:");
 		panel.add(lblContexto);
+		cbCONTEXTO.addItemListener(new ItemListener() {
+			public void itemStateChanged(ItemEvent arg0) {
+
+				CONTEXTO = String.valueOf(cbCONTEXTO.getSelectedItem());
+				
+				if (CONTEXTO.equals("SERVIDOR")) {
+					textIP.setEditable(false);
+					textIP.setText( MeuIp() );
+				} else {
+					textIP.setEditable(true);
+				}
+			}
+		});
 		
 		
 		cbCONTEXTO.setModel(new DefaultComboBoxModel(new String[] {"CLIENTE", "SERVIDOR"}));
+		
 		panel.add(cbCONTEXTO);
 		
 		
@@ -150,7 +179,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 				
 				try {
 					cliente.setNome( textUSER.getText() ); //SETA O NOME DO USUÁRIO
-					cliente.setIp( textIP.getText() ); //SETA O IP
+					cliente.setIp( MeuIp() ); //SETA O IP ATUAL
 					cliente.setPorta( Integer.parseInt( textPORTA.getText() ) ); //SETA A PORTA
 					
 					CONTEXTO = String.valueOf(cbCONTEXTO.getSelectedItem()); //SETA O CONTEXTO
@@ -187,20 +216,32 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 		
 		panel.add(btnDesconectar);
 		
+		tbCliente = new JTable();
+		tbCliente.setModel(modelo_cliente);
+		GridBagConstraints gbc_tbCliente = new GridBagConstraints();
+		gbc_tbCliente.insets = new Insets(0, 0, 5, 5);
+		gbc_tbCliente.fill = GridBagConstraints.BOTH;
+		gbc_tbCliente.gridx = 0;
+		gbc_tbCliente.gridy = 1;
+		contentPane.add(tbCliente, gbc_tbCliente);
 		
-		FlowLayout flowLayout = (FlowLayout) panel_2.getLayout();
-		flowLayout.setAlignment(FlowLayout.LEFT);
-		GridBagConstraints gbc_panel_2 = new GridBagConstraints();
-		gbc_panel_2.fill = GridBagConstraints.BOTH;
-		gbc_panel_2.gridx = 0;
-		gbc_panel_2.gridy = 2;
-		contentPane.add(panel_2, gbc_panel_2);
+		JButton btnBaixar = new JButton("BAIXAR");
+		GridBagConstraints gbc_btnBaixar = new GridBagConstraints();
+		gbc_btnBaixar.insets = new Insets(0, 0, 5, 0);
+		gbc_btnBaixar.gridx = 1;
+		gbc_btnBaixar.gridy = 1;
+		contentPane.add(btnBaixar, gbc_btnBaixar);
 		
 		
+		taLog.setRows(5);
 		taLog.setEditable(true);
 		taLog.setColumns(50);
-		taLog.setRows(5);
-		panel_2.add(taLog);
+		GridBagConstraints gbc_taLog = new GridBagConstraints();
+		gbc_taLog.gridwidth = 2;
+		gbc_taLog.fill = GridBagConstraints.BOTH;
+		gbc_taLog.gridx = 0;
+		gbc_taLog.gridy = 2;
+		contentPane.add(taLog, gbc_taLog);
 	}
 	
 
@@ -229,7 +270,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	
 	
 	
-	public void Cliente() {
+	public void Cliente() throws IOException {
 
 		log("Iniciando o cliente");
 		
@@ -238,6 +279,9 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 			servidor = (IServer) registry.lookup(IServer.NOME_SERVICO);
 			
 			registrarCliente(cliente); // solicita o registro do cliente no servidor
+			
+			publicarListaArquivos(cliente, listarMeusArquivos()); // registrar os meus arquivos no servidor
+			
 			
 		} catch (Exception e) {
 			log("\n\n-------------------------------------------------------\n"
@@ -250,7 +294,10 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	
 	
 	private void log(String string) {
-		taLog.append(string + '\n');
+		taLog.append("[ " + sdf.format(new Date()) + " ]");
+		taLog.append(" -> ");
+		taLog.append(string);
+		taLog.append("\n");
 	}
 
 
@@ -295,6 +342,11 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	public void registrarCliente(Cliente c) throws RemoteException {
 		//registra no log do servidor
 		log("Cliente \"" + c.getNome() + "\" conectou.");
+		
+		lista_clientes.add(c);
+
+		// refresh na lista de clientes
+		modelo_cliente.setList(lista_clientes);
 	}
 
 
@@ -329,11 +381,70 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 
 	@Override
 	public void desconectar(br.dagostini.jshare.comun.Cliente c) throws RemoteException {
-		// TODO Auto-generated method stub
+		log("DESCONECTANDO TODOS OS CLIENTES.");
 		
 	}
 	
 	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	public List<Arquivo> listarMeusArquivos() {
+		File dirStart = new File("c:\\jshare");
+
+		List<Arquivo> listaArquivos = new ArrayList<>();
+		List<Diretorio> listaDiretorios = new ArrayList<>();
+		for (File file : dirStart.listFiles()) {
+			if (file.isFile()) {
+				Arquivo arq = new Arquivo();
+				arq.setNome(file.getName());
+				arq.setTamanho(file.length());
+				listaArquivos.add(arq);
+			} else {
+				Diretorio dir = new Diretorio();
+				dir.setNome(file.getName());
+				listaDiretorios.add(dir);				
+			}
+		}
+
+		
+		log("Arquivos Encontrados:");
+		for (Arquivo arq : listaArquivos) {
+			log("\t" + arq.getTamanho() + "\t" + arq.getNome());
+		}
+		
+		return listaArquivos;
+		
+	}
+	
+	
+	
+	
+	
+	
+	public String MeuIp() {
+
+		InetAddress IP;
+		String ip_user = "";
+		try {
+			IP = InetAddress.getLocalHost();
+			String IPString = IP.getHostAddress();
+			ip_user = IP.getHostAddress();
+		} catch (UnknownHostException e) {
+			e.printStackTrace();
+		}
+		
+		return ip_user;
+	}
 	
 	
 	
