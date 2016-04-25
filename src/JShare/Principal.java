@@ -66,6 +66,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	
 	
 	private String CONTEXTO = "CLIENTE";
+	
 	private String DIRETORIO = "c:\\jshare"; 
 	
 	//LISTA DE CLIENTES
@@ -81,7 +82,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	
 	
 	
-	private SimpleDateFormat sdf = new SimpleDateFormat("'[Cliente] 'dd/MM/yyyy H:mm:ss:SSS' -> '");
+	private SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy H:mm:ss:SSS");
 		
 	
 	//OBJETOS ACESSIVEIS POR FUNCOES
@@ -209,6 +210,10 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 					
 					desabilitarMenuConexao(); // desabilita os campos para evitar ser alterados...
 					
+					
+					// para os testes
+	            	DIRETORIO = "c:\\jshare\\" + cliente.getNome();
+					
 					if (CONTEXTO.equals("SERVIDOR")) {
 						Servidor();
 					} else {
@@ -246,6 +251,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 		panel.add(btnDesconectar);
 		
 		tbArquivos = new JTable();
+		tbArquivos.setModel(modelo_arquivo);
 		GridBagConstraints gbc_tbArquivos = new GridBagConstraints();
 		gbc_tbArquivos.insets = new Insets(0, 0, 5, 5);
 		gbc_tbArquivos.fill = GridBagConstraints.BOTH;
@@ -354,7 +360,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 		textUSER.setEditable(false);
 		textIP.setEditable(false);
 		textPORTA.setEditable(false);
-		cbCONTEXTO.setEditable(false);
+		cbCONTEXTO.setEnabled(false);
 		btnConectar.setEnabled(false);
 		btnDesconectar.setEnabled(true);
 		
@@ -364,7 +370,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 		textUSER.setEditable(true);
 		textIP.setEditable(true);
 		textPORTA.setEditable(true);
-		cbCONTEXTO.setEditable(true);
+		cbCONTEXTO.setEnabled(true);
 		btnConectar.setEnabled(true);
 		btnDesconectar.setEnabled(false);
 	}
@@ -384,7 +390,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 			throw new RemoteException("Alguém já está usando o nome: " + c.getNome());
 		}
 
-		mapaClientes.put(c.getNome(), cliente);
+		mapaClientes.put(c.getNome(), c);
 
 		log("Cliente \"" + c.getNome() + "\" conectou."); //registra no log local
 
@@ -394,13 +400,16 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	
 	
 	private void atualizarListasDeParticipantes() throws RemoteException {
-		log("Enviando lista atualizada de participantes para todos.");
+		
+		lista_clientes.clear();
+		
 		for (Cliente c : mapaClientes.values()) {
-			//c.receberListaParticipantes(new ArrayList<String>(mapaClientes.keySet()));
 			lista_clientes.add(c);
-			// refresh na lista de clientes
-			modelo_cliente.setList(lista_clientes);
-		}
+		}	
+		
+		modelo_cliente.setList(lista_clientes);// refresh na lista de clientes
+		
+		log("Enviando lista atualizada de participantes para todos.");
 	}
 
 
@@ -409,7 +418,13 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	@Override
 	public void publicarListaArquivos(br.dagostini.jshare.comun.Cliente c, List<Arquivo> lista) throws RemoteException {
 		// TODO Auto-generated method stub
+		for (Arquivo a : lista) {
+			lista_arquivos.add(a);
+			log("arquivo: " + a.getNome());
+			modelo_arquivo.setList(lista_arquivos);// refresh na lista de clientes
+		}
 		
+		log("Recebido os arquivos de " + c.getNome());
 	}
 
 
@@ -437,18 +452,17 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	public void desconectar(br.dagostini.jshare.comun.Cliente c) throws RemoteException {
 		
 		if (CONTEXTO.equals("SERVIDOR")) {
-			log(c.getNome() + " saiu do chat."); // mostra no contexto cliente
+			mapaClientes.remove(c.getNome());
+			//remove lisata de arquivos do cliente
+			log(c.getNome() + " saiu..."); // mostra no contexto cliente
 			atualizarListasDeParticipantes();
 		} else {
-			if (servidor != null) {
-				UnicastRemoteObject.unexportObject(registry, true);
-				servidor = null;
-			}
-
-			log("Você saiu do chat."); // mostra no contexto cliente
-			lista_clientes = new ArrayList<Cliente>(); // zera a lista de clientes...
+			
+			servidor.desconectar(c);
+			log("Você saiu..."); // mostra no contexto cliente
 			registry = null;
-			servidor = null;	
+			servidor = null;
+			habilitarMenuConexao();
 			
 		}
 		
@@ -482,7 +496,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	
 	
 	public List<Arquivo> listarMeusArquivos() {
-		File dirStart = new File("c:\\jshare");
+		File dirStart = new File(DIRETORIO);
 
 		List<Arquivo> listaArquivos = new ArrayList<>();
 		List<Diretorio> listaDiretorios = new ArrayList<>();
@@ -528,9 +542,8 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 		return ip_user;
 	}
 	
-	
-	
-	
+
+
 	
 	
 
