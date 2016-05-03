@@ -1,12 +1,14 @@
 package ATM;
 
-import java.util.ArrayList;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import javax.swing.table.AbstractTableModel;
+import javax.swing.table.TableModel;
 
 import br.dagostini.jshare.comun.Cliente;
 
-public class ModeloCliente extends AbstractTableModel {
+public class ModeloCliente extends AbstractTableModel implements TableModel {
 
 
 	/**
@@ -14,55 +16,69 @@ public class ModeloCliente extends AbstractTableModel {
 	 */
 	private static final long serialVersionUID = 1L;
 	
-	private ArrayList<Cliente> lista = new ArrayList<Cliente>();
 	
-	
-	public int getColumnCount() {
-		return 3; // NOME, IP, PORTA
-	}
+	private Object[][] matriz;
+	private int linhas;
 
-	public int getRowCount() {
-		return lista.size();
-	}
-	
-	
-	public void clear() {
-		lista.clear();
-	}
+	public ModeloCliente(Map<String, Cliente> mapa) {
 		
-	public Object getValueAt(int row, int col) {
 		
-		Cliente c = lista.get(row);
+		setMap(mapa);
 		
-		switch (col) {
-		case 0:
-			return c.getNome();
-		case 1:
-			return c.getIp();
-		case 2:
-			return c.getPorta();
-		default:
-			return "Erro";
-		}
-	}
-
-	public void setList(ArrayList<Cliente> lista){
-		this.lista = lista;
-		super.fireTableDataChanged();
 	}
 
 	@Override
-	public String getColumnName (int col) {
-		
-		switch (col) {
-		case 0:
-			return "Nome";
-		case 1:
-			return "IP";
-		case 2:
-			return "PORTA";
-		default:
-			return "Erro";
-		}
+	public int getColumnCount() {
+		return 3;
 	}
+
+	@Override
+	public int getRowCount() {
+		return linhas;
+	}
+
+	@Override
+	public Object getValueAt(int rowIndex, int columnIndex) {
+		return matriz[rowIndex][columnIndex];
+	}
+	
+	 @Override
+	 public String getColumnName (int col) {
+         switch (col) {
+         case 0:
+             return "Nome";
+         case 1:
+             return "Tamanho";
+         default:
+             return "Erro";
+         }
+     }
+
+	
+	
+	public void refresh(){
+		super.fireTableDataChanged();
+	}
+
+    public void setMap(Map<String, Cliente> mapa) {
+    	// definindo a quantidade de linhas
+		linhas = 0;
+		for (Entry<String, Cliente> c : mapa.entrySet()) {
+			linhas++;
+		}
+		
+		//gerando uma noma matriz...
+		matriz = new Object[linhas][3];
+		
+		int linha = 0;
+		
+		for (Entry<String, Cliente> c : mapa.entrySet()) {
+				matriz[linha][0] = c.getValue().getNome();
+				matriz[linha][1] = c.getValue().getIp();
+				matriz[linha][2] = c.getValue().getPorta();
+				linha++;
+		}
+		
+		refresh();
+    }
 }
