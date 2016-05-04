@@ -27,7 +27,11 @@ import java.awt.Insets;
 import javax.swing.JTextField;
 import javax.swing.JLabel;
 import java.awt.event.ActionListener;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -35,6 +39,7 @@ import java.awt.event.ActionEvent;
 import java.awt.FlowLayout;
 import javax.swing.JTextArea;
 
+import br.dagostini.comum.Servidor;
 import br.dagostini.jshare.comum.pojos.Arquivo;
 import br.dagostini.jshare.comum.pojos.Diretorio;
 import br.dagostini.jshare.comun.Cliente;
@@ -394,7 +399,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 			desabilitarMenuConexao();
 			
 
-			Servidor(); // tenta entrar no contexto servidor... se não conseguir apenas mostra no log...
+			Servidor(); // cria o conceito de servidor para o app
 			Cliente(); // registra o cliente... Sim ele mesmo será um cliente...
 			
 		} catch (Exception e) {
@@ -449,10 +454,51 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	@Override
 	public byte[] baixarArquivo(Arquivo arq) throws RemoteException {
 		// TODO Auto-generated method stub
-		return null;
+		FileInputStream in = null;
+		try {
+			in = new FileInputStream( DIRETORIO + "\\" + arq.getNome() );
+			ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+			int bytesread = 0;
+			byte[] tbuff = new byte[512];
+			while (true) {
+				bytesread = in.read(tbuff);
+				if (bytesread == -1) // if EOF
+					break;
+				buffer.write(tbuff, 0, bytesread);
+			}
+			
+			return buffer.toByteArray();
+			
+		} catch (IOException e) {
+			if (in != null) {
+				try {
+					in.close();
+				} catch (IOException e2) {
+				}
+			}
+			return null;
+		}
 	}
 
-
+	
+	
+	public void baixa_araquivo_cliente (Cliente c, Arquivo arq) {
+		// conecta com o cliente
+		
+		Registry registry_cliente = LocateRegistry.getRegistry(c.getIp(), c.getPorta());
+		IServer servidor_cliente = (IServer) registry.lookup(IServer.NOME_SERVICO);
+		
+		// cria um arquivo temporario (ex pasta downloads\meuarquivo.txt)
+		java.io.File file = new java.io.File(DIRETORIO + "\\" + arq.getNome());
+		FileOutputStream in = new FileOutputStream(file) ;  
+		in.write(servidor_cliente.baixarArquivo(arq));
+		in.close();
+		// faz a captura dos bayts do cliente e escreve no arquivo...
+		//arquivo = servidor_cliente.baixarArquivo(a);
+		
+	}
+	
+	
 
 
 	@Override
