@@ -30,9 +30,7 @@ import java.awt.Insets;
 import javax.swing.JTextField;
 import javax.swing.JLabel;
 import java.awt.event.ActionListener;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -111,7 +109,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	private JLabel lblPasta;
 	private JTextField textDiretorio;
 	private JScrollPane scrollPane;
-	private JScrollPane scrollPane_1;
+	private JScrollPane scrollPaneClientes;
 	private JTable tbCliente;
 	private JCheckBox chckbxServidor;
 	private JPanel panel_2;
@@ -300,16 +298,17 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 		scrollPane.setViewportView(tbArquivos);
 		tbArquivos.setModel(modelo_cliente_arquivo);
 		
-		scrollPane_1 = new JScrollPane();
-		GridBagConstraints gbc_scrollPane_1 = new GridBagConstraints();
-		gbc_scrollPane_1.insets = new Insets(0, 0, 5, 0);
-		gbc_scrollPane_1.fill = GridBagConstraints.BOTH;
-		gbc_scrollPane_1.gridx = 1;
-		gbc_scrollPane_1.gridy = 2;
-		contentPane.add(scrollPane_1, gbc_scrollPane_1);
+		scrollPaneClientes = new JScrollPane();
+		scrollPaneClientes.setVisible(false);
+		GridBagConstraints gbc_scrollPaneClientes = new GridBagConstraints();
+		gbc_scrollPaneClientes.insets = new Insets(0, 0, 5, 0);
+		gbc_scrollPaneClientes.fill = GridBagConstraints.BOTH;
+		gbc_scrollPaneClientes.gridx = 1;
+		gbc_scrollPaneClientes.gridy = 2;
+		contentPane.add(scrollPaneClientes, gbc_scrollPaneClientes);
 		
 		tbCliente = new JTable();
-		scrollPane_1.setViewportView(tbCliente);
+		scrollPaneClientes.setViewportView(tbCliente);
 		tbCliente.setModel(modelo_cliente);
 		
 		panel_3 = new JPanel();
@@ -379,6 +378,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	
 	// Função para desabilitar o menu de conexão
 	public void desabilitarMenuConexao() {
+		
 		chckbxServidor.setEnabled(false);
 		textUSER.setEditable(false);
 		textDiretorio.setEditable(false);
@@ -483,6 +483,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 			if (isServer) {
 				// seta a porta do cliente
 				cliente.setPorta( Integer.parseInt( porta ) );
+				
 			} else {
 				// seta a porta do cliente
 				cliente.setPorta( Integer.parseInt( porta_cliente ) );
@@ -572,8 +573,8 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 
 	@Override
 	public Map<Cliente, List<Arquivo>> procurarArquivo(String nome) throws RemoteException {
-		// TODO Auto-generated method stub
-		return null;
+		// TODO IMPLEMENTAR ISSO MELHOR MAIS TARDE...
+		return mapa;
 	}
 
 
@@ -599,36 +600,47 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	
 	
 	public void baixa_arquivo_cliente(Cliente c, Arquivo arq) {
+		
+		Thread t1 = new Thread(new Runnable() {
+		     public void run() {
 
-		try {
-			// conecta com o cliente
-			Registry registry_cliente = LocateRegistry.getRegistry(c.getIp(), c.getPorta());
-			IServer servidor_cliente = (IServer) registry_cliente.lookup(IServer.NOME_SERVICO);
-			
-			// cria um arquivo temporario (ex pasta RAIZ\downloads\meuarquivo.txt)
-			File file = new File(DIRETORIO + "\\downloads\\" + c.getNome() + " - " + arq.getNome());
-			
-			FileOutputStream in = new FileOutputStream(file);
-			
-			// faz a captura dos bayts do cliente e escreve no arquivo...
-			in.write(servidor_cliente.baixarArquivo(arq));
-			// fecha o arquivo
-			in.close();
-			
-		} catch (RemoteException e) {
-			log("Erro ao iniciar download do arquivo.");
-			e.printStackTrace();
-		} catch (NotBoundException e) {
-			log("Erro ao iniciar download do arquivo.");
-			e.printStackTrace();
+		    	 try {
+		 			// conecta com o cliente
+		 			Registry registry_cliente = LocateRegistry.getRegistry(c.getIp(), c.getPorta());
+		 			IServer servidor_cliente = (IServer) registry_cliente.lookup(IServer.NOME_SERVICO);
+		 			
+		 			// cria um arquivo temporario (ex pasta RAIZ\downloads\meuarquivo.txt)
+		 			File file = new File(DIRETORIO + "\\downloads\\" + c.getNome() + " - " + arq.getNome());
+		 			
+		 			FileOutputStream in = new FileOutputStream(file);
+		 			
+		 			// faz a captura dos bayts do cliente e escreve no arquivo...
+		 			in.write(servidor_cliente.baixarArquivo(arq));
+		 			// fecha o arquivo
+		 			in.close();
+		 			
+		 			log("BAIXANDO O ARQUIVO: " + arq.getNome() + " de " + c.getNome());
+		 			
+		 		} catch (RemoteException e) {
+		 			log("Erro ao iniciar download do arquivo.");
+		 			e.printStackTrace();
+		 		} catch (NotBoundException e) {
+		 			log("Erro ao iniciar download do arquivo.");
+		 			e.printStackTrace();
 
-		} catch (FileNotFoundException e) {
-			log("Erro: o arquivo não foi encontrado.");
-			e.printStackTrace();
-		} catch (IOException e) {
-			log("Erro ao escrever o arquivo.");
-			e.printStackTrace();
-		}
+		 		} catch (FileNotFoundException e) {
+		 			log("Erro: o arquivo não foi encontrado.");
+		 			e.printStackTrace();
+		 		} catch (IOException e) {
+		 			log("Erro ao escrever o arquivo.");
+		 			e.printStackTrace();
+		 		}
+		    	 
+		    	 
+		     }
+		});  
+		t1.start();
+		
 		
 		
 		
@@ -686,6 +698,11 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 			servidor.desconectar(cliente);
 		}
 		
+		// limpa o mapa
+		mapa = new HashMap<Cliente, List<Arquivo>>();
+		modelo_cliente_arquivo.setMap(mapa);
+		
+		
 		log("Você saiu..."); // mostra no contexto cliente
 		habilitarMenuConexao();
 	}
@@ -727,6 +744,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 			try {
 				servidor.registrarCliente(cliente); // solicita o registro do cliente no servidor
 				servidor.publicarListaArquivos(cliente, listarMeusArquivos()); // registrar os meus arquivos no servidor
+				atualizarDados();
 			} catch (Exception e) {
 				log(" Problemas ao registrar os arquivos...");
 				desconectar(cliente);
@@ -760,6 +778,9 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 			// seta o contexto para servidor
 			isServer = true;
 			
+			// mostra a lista de users
+			scrollPaneClientes.setVisible(true);
+			
 		} else {
 			//limpa o campo de ip do "servidor"...
 			textIP.setText( "" );
@@ -771,13 +792,15 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 			
 			//seta o contexto para cliente
 			isServer = false;
+			
+			//mostra a lista de users
+			scrollPaneClientes.setVisible(false);
 		}
 		
 	}
 	
 	
 	private void baixarArquivoSelecionado(){
-		// o correto não é recriar um modelo de arquivo e sim pegar o que já existe mas não vou perder tempo aqui...
 		
 		// gera um modelo de arquivo temporario
 		Arquivo arquivo = new Arquivo();
@@ -785,8 +808,15 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 		arquivo.setNome( (String) modelo_cliente_arquivo.getValueAt(tbArquivos.getSelectedRow(), 3) );
 		arquivo.setTamanho( (long) modelo_cliente_arquivo.getValueAt(tbArquivos.getSelectedRow(), 4) );
 		
+		// para compatibilizar com os dos colegas nao pode-se usar esse modelo...
 		// resgata o modelo do cliente da lista de clientes... :p serviu para alguma coisa essa merda...
-		Cliente cli = mapaClientes.get( (String) modelo_cliente_arquivo.getValueAt( tbArquivos.getSelectedRow(), 0) );
+		//Cliente cli = mapaClientes.get( (String) modelo_cliente_arquivo.getValueAt( tbArquivos.getSelectedRow(), 0) );
+		
+		Cliente cli = new Cliente();
+		cli.setNome( (String) modelo_cliente_arquivo.getValueAt(tbArquivos.getSelectedRow(), 0) );
+		cli.setIp( (String) modelo_cliente_arquivo.getValueAt(tbArquivos.getSelectedRow(), 1) );
+		cli.setPorta( (int) modelo_cliente_arquivo.getValueAt(tbArquivos.getSelectedRow(), 2) );
+		
 		
 		// envia os dados do cliente e do arquivo para ser baixado...
 		baixa_arquivo_cliente(cli, arquivo);
@@ -806,6 +836,15 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	    }
 	    return isIPv4;
 	}
+	
+	
+	private void atualizarDados() throws RemoteException {
+		mapa = servidor.procurarArquivo("");
+		//atualiza a lista de arquivos
+		modelo_cliente_arquivo.setMap(mapa);
+		
+	}
+	
 	
 	
 	
