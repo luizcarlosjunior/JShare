@@ -1,5 +1,6 @@
 package ATM;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -17,6 +18,7 @@ public class ModeloClienteArquivo extends AbstractTableModel implements TableMod
 	 */
 	private static final long serialVersionUID = 1L;
 	
+	Map<Cliente, List<Arquivo>> mapaArquivos = new HashMap<Cliente, List<Arquivo>>();
 	private Object[][] matriz;
 	private int linhas;
 	
@@ -61,7 +63,10 @@ public class ModeloClienteArquivo extends AbstractTableModel implements TableMod
 		super.fireTableDataChanged();
 	}
 	
-	 public void setMap(Map<Cliente, List<Arquivo>> mapa) {
+	public void setMap(Map<Cliente, List<Arquivo>> mapa) {
+		// para facilitar um pouco... depois coloco o add e refresh aqui para o modelo... e removo o map do Principal
+		mapaArquivos = mapa;
+		
 	    // definindo a quantidade de linhas
 		 linhas = 0;
 		 for(Entry<Cliente, List<Arquivo>> e: mapa.entrySet()){

@@ -33,10 +33,15 @@ import java.awt.event.ActionListener;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.awt.event.ActionEvent;
 import java.awt.FlowLayout;
 import javax.swing.JTextArea;
@@ -73,6 +78,10 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	
 	//DIRETORIO PADRAO
 	public String DIRETORIO = "c:\\jshare"; 
+	
+	//porta padrão do servidor
+	int PORTA_SERVER = 1818;
+	String IP_SERVER = "";
 
 	//LISTA DE CLIENTES
 	private Map<String, Cliente> mapaClientes = new HashMap<>();
@@ -95,7 +104,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	private JTextField textPORTA;
 	private JTextField textUSER;
 	JButton btnConectar = new JButton("CONECTAR");
-	JButton btnDesconectar = new JButton("DESCONECTAR");
+	JButton btnDesconectar = new JButton("SAIR");
 	static JTextArea taLog = new JTextArea();
 	private JTable tbArquivos;
 	private JPanel panel_1;
@@ -108,6 +117,8 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	private JPanel panel_2;
 	private JScrollPane scrollPane_2;
 	private JPanel panel_3;
+	private JLabel lblPortaCliente;
+	private JTextField textPORTACLI;
 	
 	
 	/**
@@ -137,12 +148,12 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 		setTitle("PROJETO COMPARTILHANDO");
 		setAlwaysOnTop(true);
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		setBounds(100, 100, 898, 580);
+		setBounds(100, 100, 994, 580);
 		contentPane = new JPanel();
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 		setContentPane(contentPane);
 		GridBagLayout gbl_contentPane = new GridBagLayout();
-		gbl_contentPane.columnWidths = new int[]{479, 393, 0};
+		gbl_contentPane.columnWidths = new int[]{479, 473, 0};
 		gbl_contentPane.rowHeights = new int[]{19, 32, 185, 23, 176, 0};
 		gbl_contentPane.columnWeights = new double[]{0.0, 0.0, Double.MIN_VALUE};
 		gbl_contentPane.rowWeights = new double[]{0.0, 0.0, 1.0, 0.0, 0.0, Double.MIN_VALUE};
@@ -159,13 +170,13 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 		gbc_panel.gridy = 0;
 		contentPane.add(panel, gbc_panel);
 		
-		JLabel lblIp = new JLabel("IP:");
+		JLabel lblIp = new JLabel("IP SERV.:");
 		
 				textIP = new JTextField();
 				textIP.setText( MeuIp() );
 				textIP.setColumns(10);
 				
-						JLabel lblPorta = new JLabel("PORTA:");
+						JLabel lblPorta = new JLabel("PORTA SERV. :");
 						
 								textPORTA = new JTextField();
 								textPORTA.setText("1818");
@@ -177,7 +188,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 												textUSER.setText("sem_nome");
 												textUSER.setColumns(10);
 												
-												chckbxServidor = new JCheckBox("IP AUTO");
+												chckbxServidor = new JCheckBox("SERVIDOR");
 												chckbxServidor.addItemListener(new ItemListener() {
 													public void itemStateChanged(ItemEvent arg0) {
 														checaContexto();
@@ -205,7 +216,16 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 													}
 												});
 												
+												lblPortaCliente = new JLabel("PORTA CLI:");
+												panel.add(lblPortaCliente);
+												
+												textPORTACLI = new JTextField();
+												textPORTACLI.setText("1819");
+												textPORTACLI.setColumns(10);
+												panel.add(textPORTACLI);
+												
 												panel.add(btnConectar);
+												btnDesconectar.setVisible(false);
 												btnDesconectar.addActionListener(new ActionListener() {
 													public void actionPerformed(ActionEvent arg0) {
 										
@@ -308,6 +328,11 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 		panel_3.setLayout(gbl_panel_3);
 		
 		JButton btnBaixar = new JButton("BAIXAR");
+		btnBaixar.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent arg0) {
+				baixarArquivoSelecionado();
+			}
+		});
 		GridBagConstraints gbc_btnBaixar = new GridBagConstraints();
 		gbc_btnBaixar.anchor = GridBagConstraints.NORTHWEST;
 		gbc_btnBaixar.gridx = 0;
@@ -356,11 +381,14 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	public void desabilitarMenuConexao() {
 		chckbxServidor.setEnabled(false);
 		textUSER.setEditable(false);
+		textDiretorio.setEditable(false);
 		textIP.setEditable(false);
 		textPORTA.setEditable(false);
-		btnConectar.setEnabled(false);
-		//habilita o botão de conectar
-		btnDesconectar.setEnabled(true);
+		textPORTACLI.setEditable(false);
+		//esconde o botão de conectar
+		btnConectar.setVisible(false);
+		//mostra o botão de conectar
+		btnDesconectar.setVisible(true);
 		
 	}
 	
@@ -368,11 +396,14 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	public void habilitarMenuConexao() {
 		chckbxServidor.setEnabled(true);
 		textUSER.setEditable(true);
+		textDiretorio.setEditable(true);
 		textIP.setEditable(true);
 		textPORTA.setEditable(true);
-		btnConectar.setEnabled(true);
-		//desabilita o botão de desconectar
-		btnDesconectar.setEnabled(false);
+		textPORTACLI.setEditable(true);
+		//mostra o botão de conectar
+		btnConectar.setVisible(true);
+		//esconde o botão de desconectar
+		btnDesconectar.setVisible(false);
 	}
 	
 	
@@ -416,14 +447,52 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 			//coleta a porta
 			String porta = textPORTA.getText().trim();
 			
-			// Checa o tamanho dos caracteres do campo porta
+			// Checa o tamanho dos caracteres do campo porta do servidor
 			if ( ( porta.length() == 0 ) && ( porta.length() <= 5 ) ) {
 				JOptionPane.showMessageDialog(Principal.this, "Você precisa digitar uma porta entre 1 e 5 digitos!\n Ex: \"1818\"");
 				return;
 			}
 
-			// seta a porta do cliente
-			cliente.setPorta( Integer.parseInt( porta ) );
+			//coleta a porta
+			String porta_cliente = textPORTACLI.getText().trim();
+
+			// Checa o tamanho dos caracteres do campo porta do cliente
+			if ( ( porta_cliente.length() == 0 ) && ( porta_cliente.length() <= 5 ) ) {
+				JOptionPane.showMessageDialog(Principal.this, "Você precisa digitar uma porta do cliente.. entre 1 e 5 digitos!\n Ex: \"1818\"");
+				return;
+			}
+			
+			
+			String ip = textIP.getText().trim();
+			
+			// Checa o tamanho dos caracteres do campo porta do servidor
+			if ( checkIPv4(ip) ) {
+				//JOptionPane.showMessageDialog(Principal.this, "Você precisa digitar um ip (IPv4) válido");
+				//return;
+			}
+			
+			// captura o ip do cliente :P
+			String ip_cliente = MeuIp();
+			
+			//seta o ip do cliente...
+			cliente.setIp( ip_cliente ); //SETA O IP ATUAL para o cliente
+			
+
+			// se estiver no contexto servidor... a porta do cliente será igual a porta do servidor... se não será o conteúdo do text...
+			
+			if (isServer) {
+				// seta a porta do cliente
+				cliente.setPorta( Integer.parseInt( porta ) );
+			} else {
+				// seta a porta do cliente
+				cliente.setPorta( Integer.parseInt( porta_cliente ) );
+			}
+			
+			PORTA_SERVER = Integer.parseInt(porta);
+			IP_SERVER = ip;
+			
+			
+			
 			
 			
 			//coleta o nome do cliente
@@ -449,8 +518,8 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 				return;
 			}
 			
-			//seta o ip do cliente...
-			cliente.setIp( MeuIp() ); //SETA O IP ATUAL
+
+			
 			
 			// desabilita os campos para evitar ser alterados...
 			desabilitarMenuConexao();
@@ -512,50 +581,57 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 
 	@Override
 	public byte[] baixarArquivo(Arquivo arq) throws RemoteException {
-		// TODO Auto-generated method stub
-		FileInputStream in = null;
+
+		Path path = Paths.get( new File(DIRETORIO + "\\" + arq.getNome() ).getPath() );
+		
 		try {
-			in = new FileInputStream( DIRETORIO + "\\" + arq.getNome() );
-			ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-			int bytesread = 0;
-			byte[] tbuff = new byte[512];
-			while (true) {
-				bytesread = in.read(tbuff);
-				if (bytesread == -1) // if EOF
-					break;
-				buffer.write(tbuff, 0, bytesread);
-			}
-			
-			return buffer.toByteArray();
-			
+			byte[] dados = Files.readAllBytes(path);
+			return dados;
 		} catch (IOException e) {
-			if (in != null) {
-				try {
-					in.close();
-				} catch (IOException e2) {
-				}
-			}
-			return null;
+			System.err.println("Erro ao ler arquivo");
+			throw new RuntimeException(e);
 		}
+		
+		
+		
 	}
 
 	
 	
-	public void baixa_arquivo_cliente(Cliente c, Arquivo arq) throws NotBoundException, IOException {
-		// conecta com o cliente
-		
-		Registry registry_cliente = LocateRegistry.getRegistry(c.getIp(), c.getPorta());
-		IServer servidor_cliente = (IServer) registry.lookup(IServer.NOME_SERVICO);
-		
-		// cria um arquivo temporario (ex pasta downloads\meuarquivo.txt)
-		java.io.File file = new java.io.File(DIRETORIO + "\\" + arq.getNome());
-		FileOutputStream in = new FileOutputStream(file);
-		// faz a captura dos bayts do cliente e escreve no arquivo...
-		in.write(servidor_cliente.baixarArquivo(arq));
-		// fecha o arquivo
-		in.close();
-		
+	public void baixa_arquivo_cliente(Cliente c, Arquivo arq) {
 
+		try {
+			// conecta com o cliente
+			Registry registry_cliente = LocateRegistry.getRegistry(c.getIp(), c.getPorta());
+			IServer servidor_cliente = (IServer) registry_cliente.lookup(IServer.NOME_SERVICO);
+			
+			// cria um arquivo temporario (ex pasta RAIZ\downloads\meuarquivo.txt)
+			File file = new File(DIRETORIO + "\\downloads\\" + c.getNome() + " - " + arq.getNome());
+			
+			FileOutputStream in = new FileOutputStream(file);
+			
+			// faz a captura dos bayts do cliente e escreve no arquivo...
+			in.write(servidor_cliente.baixarArquivo(arq));
+			// fecha o arquivo
+			in.close();
+			
+		} catch (RemoteException e) {
+			log("Erro ao iniciar download do arquivo.");
+			e.printStackTrace();
+		} catch (NotBoundException e) {
+			log("Erro ao iniciar download do arquivo.");
+			e.printStackTrace();
+
+		} catch (FileNotFoundException e) {
+			log("Erro: o arquivo não foi encontrado.");
+			e.printStackTrace();
+		} catch (IOException e) {
+			log("Erro ao escrever o arquivo.");
+			e.printStackTrace();
+		}
+		
+		
+		
 	}
 	
 	
@@ -563,26 +639,32 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 
 	@Override
 	public void desconectar(Cliente c) throws RemoteException {
+		
 		// remover o cliente da lista
+		// aqui é fácil pois o key é um string...
 		mapaClientes.remove(c.getNome());
 		
 		// remover a lista de arquivos do cliente...
+		// aqui tinha uma pegadinha pois o key é um objeto
 		for(Iterator<Entry<Cliente, List<Arquivo>>> it = mapa.entrySet().iterator(); it.hasNext(); ) {
-		      Entry<Cliente, List<Arquivo>> entry = it.next();
-		      if(entry.getKey().getNome().equals(c.getNome())) {
-		        it.remove();
-		      }
-		    }
+	      
+			Entry<Cliente, List<Arquivo>> entry = it.next();
+			
+			if(entry.getKey().getNome().equals(c.getNome())) {
+				it.remove();
+			}
+		}
 		
 		
 		// atualiza a lista de clientes...
 		modelo_cliente.setMap(mapaClientes);
+		
 		//atualiza a lista de arquivos
 		modelo_cliente_arquivo.setMap(mapa);
 		
 		//remove lisata de arquivos do cliente
 		log(c.getNome() + " saiu..."); // mostra no contexto cliente
-
+		
 	}
 	
 	
@@ -639,7 +721,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 		log("Iniciando o cliente...");
 		
 		try {
-			Registry registry = LocateRegistry.getRegistry(cliente.getIp(), cliente.getPorta());
+			Registry registry = LocateRegistry.getRegistry(IP_SERVER, PORTA_SERVER);
 			servidor = (IServer) registry.lookup(IServer.NOME_SERVICO);
 			
 			try {
@@ -672,6 +754,9 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 			textIP.setText( MeuIp() );
 			// desabilita o campo de texto para evitar que seja alterado...
 			textIP.setEditable(false);
+			//esconde a posta do cliente pois vai ser a mesma do srv...
+			lblPortaCliente.setVisible(false);
+			textPORTACLI.setVisible(false);
 			// seta o contexto para servidor
 			isServer = true;
 			
@@ -680,9 +765,48 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 			textIP.setText( "" );
 			// habilita o campo de texto
 			textIP.setEditable(true);
+			// mostra posrta do clie
+			lblPortaCliente.setVisible(false);
+			textPORTACLI.setVisible(false);
+			
 			//seta o contexto para cliente
 			isServer = false;
 		}
 		
 	}
+	
+	
+	private void baixarArquivoSelecionado(){
+		// o correto não é recriar um modelo de arquivo e sim pegar o que já existe mas não vou perder tempo aqui...
+		
+		// gera um modelo de arquivo temporario
+		Arquivo arquivo = new Arquivo();
+		// atribui um nome para o arquivo ... pega da linha selecionada
+		arquivo.setNome( (String) modelo_cliente_arquivo.getValueAt(tbArquivos.getSelectedRow(), 3) );
+		arquivo.setTamanho( (long) modelo_cliente_arquivo.getValueAt(tbArquivos.getSelectedRow(), 4) );
+		
+		// resgata o modelo do cliente da lista de clientes... :p serviu para alguma coisa essa merda...
+		Cliente cli = mapaClientes.get( (String) modelo_cliente_arquivo.getValueAt( tbArquivos.getSelectedRow(), 0) );
+		
+		// envia os dados do cliente e do arquivo para ser baixado...
+		baixa_arquivo_cliente(cli, arquivo);
+		
+		
+	}
+	
+	
+	public static final boolean checkIPv4(final String ip) {
+	    boolean isIPv4;
+	    try {
+	    final InetAddress inet = InetAddress.getByName(ip);
+	    isIPv4 = inet.getHostAddress().equals(ip)
+	            && inet instanceof Inet4Address;
+	    } catch (final UnknownHostException e) {
+	    isIPv4 = false;
+	    }
+	    return isIPv4;
+	}
+	
+	
+	
 }
