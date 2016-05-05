@@ -383,14 +383,7 @@ public class Principal2 extends JFrame implements Remote, Runnable, IServer {
 
 	@Override
 	public void publicarListaArquivos(br.dagostini.jshare.comun.Cliente c, List<Arquivo> lista) throws RemoteException {
-		// TODO Auto-generated method stub
-		for (Arquivo a : lista) {
-			lista_arquivos.add(a);
-			log("arquivo: " + a.getNome());
-			modelo_arquivo.setList(lista_arquivos);// refresh na lista de clientes
-		}
 		
-		log("Recebido os arquivos de " + c.getNome());
 	}
 
 

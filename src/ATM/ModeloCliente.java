@@ -16,15 +16,11 @@ public class ModeloCliente extends AbstractTableModel implements TableModel {
 	 */
 	private static final long serialVersionUID = 1L;
 	
-	
 	private Object[][] matriz;
 	private int linhas;
 
 	public ModeloCliente(Map<String, Cliente> mapa) {
-		
-		
 		setMap(mapa);
-		
 	}
 
 	@Override
@@ -54,18 +50,13 @@ public class ModeloCliente extends AbstractTableModel implements TableModel {
          }
      }
 
-	
-	
 	public void refresh(){
 		super.fireTableDataChanged();
 	}
 
     public void setMap(Map<String, Cliente> mapa) {
     	// definindo a quantidade de linhas
-		linhas = 0;
-		for (Entry<String, Cliente> c : mapa.entrySet()) {
-			linhas++;
-		}
+		linhas = mapa.size();
 		
 		//gerando uma noma matriz...
 		matriz = new Object[linhas][3];

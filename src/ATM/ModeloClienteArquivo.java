@@ -17,31 +17,11 @@ public class ModeloClienteArquivo extends AbstractTableModel implements TableMod
 	 */
 	private static final long serialVersionUID = 1L;
 	
-	
 	private Object[][] matriz;
 	private int linhas;
 	
 	public ModeloClienteArquivo(Map<Cliente, List<Arquivo>> mapa) {
-		
-		linhas = 0;
-		for (Entry<Cliente, List<Arquivo>> e : mapa.entrySet()) {
-			linhas+=e.getValue().size();
-		}
-		
-		matriz = new Object[linhas][5];
-		
-		int linha = 0;
-		
-		for (Entry<Cliente, List<Arquivo>> e : mapa.entrySet()) {
-			for (Arquivo arq : e.getValue()) {
-				matriz[linha][0] = e.getKey().getNome();
-				matriz[linha][1] = e.getKey().getIp();
-				matriz[linha][2] = e.getKey().getPorta();
-				matriz[linha][3] = arq.getNome();
-				matriz[linha][4] = arq.getTamanho();
-				linha++;
-			}
-		}
+		setMap(mapa);
 	}
 
 	@Override
@@ -77,4 +57,33 @@ public class ModeloClienteArquivo extends AbstractTableModel implements TableMod
         }
     }
 
+	public void refresh(){
+		super.fireTableDataChanged();
+	}
+	
+	 public void setMap(Map<Cliente, List<Arquivo>> mapa) {
+	    // definindo a quantidade de linhas
+		 linhas = 0;
+		 for(Entry<Cliente, List<Arquivo>> e: mapa.entrySet()){
+			linhas+= e.getValue().size();
+		 }
+			
+		matriz = new Object[linhas][5];
+		
+		int linha = 0;
+		
+		for (Entry<Cliente, List<Arquivo>> e : mapa.entrySet()) {
+			for (Arquivo arq : e.getValue()) {
+				matriz[linha][0] = e.getKey().getNome();
+				matriz[linha][1] = e.getKey().getIp();
+				matriz[linha][2] = e.getKey().getPorta();
+				matriz[linha][3] = arq.getNome();
+				matriz[linha][4] = arq.getTamanho();
+				linha++;
+			}
+		}
+			
+			
+		refresh();
+    }
 }
