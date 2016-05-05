@@ -11,8 +11,10 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
@@ -175,7 +177,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 												textUSER.setText("sem_nome");
 												textUSER.setColumns(10);
 												
-												chckbxServidor = new JCheckBox("SERVIDOR");
+												chckbxServidor = new JCheckBox("IP AUTO");
 												chckbxServidor.addItemListener(new ItemListener() {
 													public void itemStateChanged(ItemEvent arg0) {
 														checaContexto();
@@ -564,11 +566,23 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 		// remover o cliente da lista
 		mapaClientes.remove(c.getNome());
 		
-		//remove lisata de arquivos do cliente
-		log(c.getNome() + " saiu..."); // mostra no contexto cliente
+		// remover a lista de arquivos do cliente...
+		for(Iterator<Entry<Cliente, List<Arquivo>>> it = mapa.entrySet().iterator(); it.hasNext(); ) {
+		      Entry<Cliente, List<Arquivo>> entry = it.next();
+		      if(entry.getKey().getNome().equals(c.getNome())) {
+		        it.remove();
+		      }
+		    }
+		
 		
 		// atualiza a lista de clientes...
-		modelo_cliente.setMap(mapaClientes);		
+		modelo_cliente.setMap(mapaClientes);
+		//atualiza a lista de arquivos
+		modelo_cliente_arquivo.setMap(mapa);
+		
+		//remove lisata de arquivos do cliente
+		log(c.getNome() + " saiu..."); // mostra no contexto cliente
+
 	}
 	
 	
@@ -583,6 +597,7 @@ public class Principal extends JFrame implements Remote, Runnable, IServer {
 	private void sair() throws RemoteException {
 		// se contexto for servidor
 		if (isServer) {
+			// desconectar todos os clientes
 			desconectar(cliente);
 		} else {
 			// se o contexto for cliente
